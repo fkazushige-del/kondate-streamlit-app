@@ -186,8 +186,9 @@ def _next_id(records: list[dict]) -> int:
 
 
 def init_store() -> None:
-    for name in DATA_HEADERS:
-        _worksheet(name)
+    # Sheets are created and validated lazily. Eagerly checking every sheet on
+    # each Streamlit rerun burns Google Sheets quota and can trigger 429 errors.
+    return None
 
 
 def save_menu(week_start, day_menus: list):
