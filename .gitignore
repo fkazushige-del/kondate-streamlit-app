@@ -1,0 +1,8 @@
+.streamlit/secrets.toml
+__pycache__/
+node_modules/
+*.pyc
+kondate.db
+*.bak_*
+*.tmp
+.env
