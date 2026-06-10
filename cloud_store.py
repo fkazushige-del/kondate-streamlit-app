@@ -9,6 +9,7 @@ from __future__ import annotations
 import datetime
 import json
 import os
+import time
 
 
 DATA_HEADERS = {
@@ -21,6 +22,9 @@ DATA_HEADERS = {
 }
 
 _SPREADSHEET = None
+_WORKSHEETS = {}
+_RECORD_CACHE = {}
+_CACHE_TTL_SECONDS = 120
 
 
 def _now() -> str:
@@ -126,6 +130,8 @@ def _spreadsheet():
 
 
 def _worksheet(name: str):
+    if name in _WORKSHEETS:
+        return _WORKSHEETS[name]
     book = _spreadsheet()
     try:
         ws = book.worksheet(name)
@@ -136,6 +142,7 @@ def _worksheet(name: str):
         current = ws.row_values(1)
         if current[: len(headers)] != headers:
             _update_sheet(ws, [headers])
+    _WORKSHEETS[name] = ws
     return ws
 
 
@@ -149,9 +156,17 @@ def _update_sheet(ws, values):
 
 
 def _records(name: str) -> list[dict]:
+    cached = _RECORD_CACHE.get(name)
+    if cached:
+        cached_at, records = cached
+        if time.monotonic() - cached_at < _CACHE_TTL_SECONDS:
+            return [dict(row) for row in records]
+
     ws = _worksheet(name)
     rows = ws.get_all_records()
-    return [{str(k): v for k, v in row.items()} for row in rows]
+    records = [{str(k): v for k, v in row.items()} for row in rows]
+    _RECORD_CACHE[name] = (time.monotonic(), [dict(row) for row in records])
+    return [dict(row) for row in records]
 
 
 def _write_records(name: str, records: list[dict]) -> None:
@@ -160,6 +175,7 @@ def _write_records(name: str, records: list[dict]) -> None:
     for record in records:
         values.append([record.get(header, "") for header in headers])
     _update_sheet(_worksheet(name), values)
+    _RECORD_CACHE[name] = (time.monotonic(), [dict(row) for row in records])
 
 
 def _next_id(records: list[dict]) -> int:
