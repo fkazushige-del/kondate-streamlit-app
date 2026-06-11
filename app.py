@@ -46,6 +46,12 @@ def require_app_password():
         st.error("アプリパスワードが未設定です。Streamlit Secrets に KONDATE_APP_PASSWORD を設定してください。")
         st.stop()
 
+    lock_until = st.session_state.get("login_lock_until")
+    if lock_until and datetime.datetime.now() < lock_until:
+        remaining = int((lock_until - datetime.datetime.now()).total_seconds() // 60) + 1
+        st.error(f"ログイン失敗が続いたため、あと約{remaining}分待ってから再試行してください。")
+        st.stop()
+
     if st.session_state.get("app_authenticated"):
         with st.sidebar:
             if st.button("ログアウト"):
@@ -61,7 +67,15 @@ def require_app_password():
     if submitted:
         if hmac.compare_digest(entered, password):
             st.session_state["app_authenticated"] = True
+            st.session_state.pop("login_fail_count", None)
+            st.session_state.pop("login_lock_until", None)
             st.rerun()
+        fail_count = st.session_state.get("login_fail_count", 0) + 1
+        st.session_state["login_fail_count"] = fail_count
+        if fail_count >= 5:
+            st.session_state["login_lock_until"] = datetime.datetime.now() + datetime.timedelta(minutes=5)
+            st.error("ログイン失敗が続いたため、5分後に再試行してください。")
+            st.stop()
         st.error("パスワードが違います。")
 
     st.stop()
@@ -930,8 +944,7 @@ with tab5:
 
     # APIキー確認
     st.markdown("#### 🔑 API設定")
-    masked = GOOGLE_API_KEY[:8] + "..." + GOOGLE_API_KEY[-4:] if len(GOOGLE_API_KEY) > 12 else "設定済み"
-    st.success(f"✅ Gemini APIキー: `{masked}`")
+    st.success("✅ Gemini APIキー: 設定済み")
     st.caption("APIキーを変更したい場合は `.streamlit/secrets.toml` を直接編集してください。")
 
     st.markdown("---")
