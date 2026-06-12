@@ -344,7 +344,6 @@ def handle_validated_generated_result(pending_key, week_start, result, validatio
         return False
     if validation.get("warnings"):
         prepare_validated_save(pending_key, week_start, result, validation, success_message, rerun_after_save)
-        render_pending_validated_save(pending_key)
         return False
     save_generated_menu_result(week_start, result)
     st.session_state.pop(pending_key, None)
